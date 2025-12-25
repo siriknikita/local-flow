@@ -1,0 +1,15 @@
+[project]
+name = "local-flow"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "mlx-whisper>=0.4.3",
+    "numpy>=2.3.5",
+    "onnxruntime>=1.23.2",
+    "pynput>=1.8.1",
+    "rumps>=0.4.0",
+    "silero-vad>=6.2.0",
+    "sounddevice>=0.5.3",
+]
