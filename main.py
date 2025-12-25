@@ -122,6 +122,11 @@ from engine.vad import SileroVAD
 from ui.overlay import RecordingOverlay
 from ui.settings import ModelManagerWindow, PreferencesWindow
 
+try:
+    import sounddevice as sd
+except ImportError:
+    sd = None
+
 # Configure logging with unbuffered output
 logging.basicConfig(
     level=logging.INFO,
@@ -569,6 +574,44 @@ class LocalFlowApp(rumps.App):
             else:
                 logger.info("Hold mode: Already recording, ignoring trigger")
     
+    def _detect_audio_devices(self):
+        """Detect and return microphone and system audio device indices.
+        
+        Returns:
+            Tuple of (microphone_device, system_audio_device) indices, or None if not found
+        """
+        audio_config = self.config.get("audio", {})
+        auto_detect = audio_config.get("auto_detect_devices", True)
+        
+        # Get configured devices
+        mic_device = audio_config.get("microphone_device")
+        system_device = audio_config.get("system_audio_device")
+        
+        # Auto-detect if enabled and devices not configured
+        if auto_detect:
+            if mic_device is None:
+                mic_device = self.audio_recorder.get_default_input_device()
+                if mic_device is not None:
+                    try:
+                        mic_info = sd.query_devices(mic_device)
+                        logger.info(f"Auto-detected microphone: {mic_info['name']} (index {mic_device})")
+                    except Exception:
+                        mic_device = None
+            
+            if system_device is None:
+                system_device = self.audio_recorder.find_blackhole_device()
+                if system_device is not None:
+                    try:
+                        system_info = sd.query_devices(system_device)
+                        logger.info(f"Auto-detected system audio device: {system_info['name']} (index {system_device})")
+                    except Exception:
+                        system_device = None
+                else:
+                    logger.info("No BlackHole device found for system audio capture")
+                    logger.info("To capture system audio, install BlackHole from: https://github.com/ExistentialAudio/BlackHole")
+        
+        return mic_device, system_device
+    
     def _start_recording(self):
         """Start recording audio."""
         if self.is_recording:
@@ -602,11 +645,75 @@ class LocalFlowApp(rumps.App):
         #     stop_callback=self._stop_recording
         # )
         
-        # Start audio recording
-        logger.debug("Starting audio recorder")
-        self.audio_recorder.start_recording()
-        
-        logger.info("Recording started successfully")
+        # Detect audio devices
+        try:
+            mic_device, system_device = self._detect_audio_devices()
+            
+            if mic_device is None:
+                error_msg = (
+                    "No microphone device available.\n\n"
+                    "Please check your audio settings and ensure a microphone is connected."
+                )
+                logger.error(error_msg)
+                rumps.alert(
+                    title="No Microphone Found",
+                    message=error_msg,
+                    ok="OK"
+                )
+                self.is_recording = False
+                return
+            
+            # Get audio configuration
+            audio_config = self.config.get("audio", {})
+            mix_audio = audio_config.get("mix_audio", True)
+            
+            # Start audio recording
+            logger.debug("Starting audio recorder")
+            try:
+                self.audio_recorder.start_recording(
+                    microphone_device=mic_device,
+                    system_audio_device=system_device,
+                    mix_audio=mix_audio
+                )
+                logger.info("Recording started successfully")
+            except RuntimeError as e:
+                error_msg = str(e)
+                logger.error(f"Failed to start recording: {error_msg}")
+                
+                # Provide helpful error messages
+                if "microphone" in error_msg.lower() or "device" in error_msg.lower():
+                    user_msg = (
+                        f"Failed to start audio recording:\n{error_msg}\n\n"
+                        "Please check:\n"
+                        "• Microphone is connected and working\n"
+                        "• Microphone permissions are granted\n"
+                        "• Audio device settings in Preferences"
+                    )
+                elif system_device is not None and "system" in error_msg.lower():
+                    user_msg = (
+                        f"Failed to start system audio recording:\n{error_msg}\n\n"
+                        "To capture system audio:\n"
+                        "1. Install BlackHole from: https://github.com/ExistentialAudio/BlackHole\n"
+                        "2. Configure BlackHole in Audio MIDI Setup\n"
+                        "3. Or disable system audio capture in Preferences"
+                    )
+                else:
+                    user_msg = f"Failed to start recording: {error_msg}"
+                
+                rumps.alert(
+                    title="Recording Error",
+                    message=user_msg,
+                    ok="OK"
+                )
+                self.is_recording = False
+        except Exception as e:
+            logger.error(f"Unexpected error starting recording: {e}", exc_info=True)
+            rumps.alert(
+                title="Recording Error",
+                message=f"An unexpected error occurred: {e}",
+                ok="OK"
+            )
+            self.is_recording = False
     
     def _stop_recording(self):
         """Stop recording and process audio."""

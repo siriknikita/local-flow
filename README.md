@@ -6,6 +6,7 @@ A professional, system-wide AI dictation application for macOS (optimized for M4
 
 - **Local-First**: All processing happens on-device using Apple Silicon (MLX)
 - **Global Hotkey**: Trigger recording from anywhere with a customizable hotkey
+- **Dual Audio Capture**: Record from both microphone and system audio (headphones) simultaneously
 - **Real-Time Visualization**: Oscilloscope-style waveform display during recording
 - **MLX-Whisper**: Fast, Metal-accelerated transcription using Whisper large-v3-turbo
 - **Silero VAD**: Professional voice activity detection (ONNX, no PyTorch overhead)
@@ -59,6 +60,14 @@ uv run python main.py
    - Select a model variant (default: large-turbo for M4 Pro)
    - Click "Download" and wait for completion
 
+4. **Set Up System Audio Capture** (optional):
+   - To capture audio from headphones/system audio, install BlackHole:
+     - Download from: https://github.com/ExistentialAudio/BlackHole
+     - Install the virtual audio driver
+     - Configure in Audio MIDI Setup (Applications > Utilities)
+   - LocalFlow will automatically detect BlackHole if installed
+   - Without BlackHole, only microphone audio will be captured
+
 ### Recording
 
 1. **Start Recording**: Press your configured hotkey (or hold it in Hold-to-Talk mode)
@@ -87,9 +96,24 @@ Configuration is stored in `config.json`:
   "model": "mlx-community/whisper-large-v3-turbo",
   "mode": "toggle",
   "cache_dir": "~/.cache/local_whisper",
-  "vad_enabled": true
+  "vad_enabled": true,
+  "audio": {
+    "microphone_device": null,
+    "system_audio_device": null,
+    "mix_audio": true,
+    "auto_detect_devices": true
+  }
 }
 ```
+
+### Audio Configuration
+
+- **microphone_device**: Device index for microphone (null = auto-detect default)
+- **system_audio_device**: Device index for system audio/loopback (null = auto-detect BlackHole)
+- **mix_audio**: Enable mixing of microphone and system audio (default: true)
+- **auto_detect_devices**: Automatically find suitable devices (default: true)
+
+To find available audio devices, you can list them programmatically or check System Settings > Sound.
 
 ## Model Variants
 
@@ -131,6 +155,26 @@ If text injection doesn't work, ensure LocalFlow has Accessibility permissions:
 - Check microphone permissions in System Settings
 - Ensure a microphone is connected and working
 - Try restarting the application
+
+### System Audio Capture
+
+If you want to capture system audio (what you hear from headphones):
+
+1. **Install BlackHole**:
+   - Download from: https://github.com/ExistentialAudio/BlackHole
+   - Install the virtual audio driver
+   - Restart your Mac if prompted
+
+2. **Configure BlackHole** (optional):
+   - Open Audio MIDI Setup (Applications > Utilities)
+   - Create a Multi-Output Device that includes both your speakers/headphones and BlackHole
+   - Set this as your system output to route audio to BlackHole
+
+3. **LocalFlow will automatically detect BlackHole** when you start recording
+   - If BlackHole is not found, it will fall back to microphone-only recording
+   - You'll see a log message indicating whether system audio capture is available
+
+**Note**: Without BlackHole or another virtual audio driver, macOS does not provide direct access to system audio. LocalFlow will work perfectly fine with just microphone input.
 
 ### Model Download Issues
 

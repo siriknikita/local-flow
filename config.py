@@ -23,7 +23,13 @@ def load_config() -> Dict[str, Any]:
             "model": "mlx-community/whisper-large-v3-turbo",
             "mode": "toggle",
             "cache_dir": "~/.cache/local_whisper",
-            "vad_enabled": True
+            "vad_enabled": True,
+            "audio": {
+                "microphone_device": None,
+                "system_audio_device": None,
+                "mix_audio": True,
+                "auto_detect_devices": True
+            }
         }
     
     try:
@@ -38,7 +44,13 @@ def load_config() -> Dict[str, Any]:
             "model": "mlx-community/whisper-large-v3-turbo",
             "mode": "toggle",
             "cache_dir": "~/.cache/local_whisper",
-            "vad_enabled": True
+            "vad_enabled": True,
+            "audio": {
+                "microphone_device": None,
+                "system_audio_device": None,
+                "mix_audio": True,
+                "auto_detect_devices": True
+            }
         }
 
 
