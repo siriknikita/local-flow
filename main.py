@@ -231,7 +231,7 @@ class LocalFlowApp(rumps.App):
         # Initialize CustomTkinter configuration (defer root window creation)
         logger.info("Step 10: Initializing UI framework")
         if not TKINTER_AVAILABLE:
-            logger.warning("Step 10: Tkinter is not available (incompatible with macOS 26.1)")
+            logger.warning("Step 10: Tkinter is not available (incompatible with macOS 26.0.99)")
             logger.warning("Step 10: UI windows will not be available")
             logger.warning("Step 10: To fix: brew install python-tk@3.12")
             self.root = False  # Mark as unavailable
@@ -274,7 +274,7 @@ class LocalFlowApp(rumps.App):
         # Check if Tkinter is available at all
         if not TKINTER_AVAILABLE or ctk is None:
             raise RuntimeError(
-                "Tkinter is not compatible with macOS 26.1. "
+                "Tkinter is not compatible with macOS 26.0.99. "
                 "Please install Homebrew Python-Tk: brew install python-tk@3.12"
             )
         
@@ -968,7 +968,7 @@ class LocalFlowApp(rumps.App):
         """Show alert about Tkinter being unavailable."""
         rumps.alert(
             title="UI Not Available",
-            message="Tkinter is not compatible with macOS 26.1.\n\n"
+            message="Tkinter is not compatible with macOS 26.0.99.\n\n"
                    "This means UI windows (Preferences, Model Manager, Recording Overlay) "
                    "will not be available.\n\n"
                    "To fix this:\n"
@@ -1117,4 +1117,48 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="LocalFlow - AI Dictation for macOS")
+    parser.add_argument(
+        "--server",
+        action="store_true",
+        help="Run as HTTP/WebSocket server for SwiftUI app"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Server host (default: 127.0.0.1)"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Server port (default: 8000)"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.server:
+        # Run as server
+        import uvicorn
+        from server import app
+        
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            stream=sys.stdout,
+            force=True
+        )
+        
+        logger.info("=" * 60)
+        logger.info("Starting LocalFlow Server Mode")
+        logger.info(f"Server will be available at http://{args.host}:{args.port}")
+        logger.info("=" * 60)
+        
+        uvicorn.run(app, host=args.host, port=args.port)
+    else:
+        # Run as CLI app (original behavior)
+        main()

@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+After finishing your implementation of changes, always check if the build is successful by running `./build.sh`. If it is not, please fix the build errors and re-run until it is successful.

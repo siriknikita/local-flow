@@ -23,6 +23,8 @@ A professional, system-wide AI dictation application for macOS (optimized for M4
 
 ## Installation
 
+### Python Backend
+
 1. Clone the repository:
 
 ```bash
@@ -30,32 +32,91 @@ git clone <repository-url>
 cd local-flow
 ```
 
-1. Install dependencies using UV:
+2. Install dependencies using UV:
 
 ```bash
 uv sync
 ```
 
-1. Run the application:
+3. Run the application:
 
+**Option A: SwiftUI App (Recommended)**
+```bash
+# Start the backend server
+uv run python main.py --server
+
+# Then build and run the SwiftUI app (see SwiftUI App section below)
+```
+
+**Option B: Python UI (Legacy)**
 ```bash
 uv run python main.py
 ```
+
+### SwiftUI App
+
+The SwiftUI app provides a native macOS experience. **Important: The SwiftUI app requires the Python backend server to be running.**
+
+1. **Build the app:**
+   ```bash
+   ./build.sh
+   ```
+
+2. **Start the backend server first:**
+   ```bash
+   uv run python main.py --server
+   ```
+   
+   The server will start on `http://127.0.0.1:8000`. Keep this terminal window open.
+
+3. **Run the SwiftUI app:**
+   ```bash
+   open build/LocalFlow.app
+   ```
+
+4. **Find the menu bar icon:**
+   - Look for a microphone icon (🎤) in the top-right menu bar
+   - If you don't see it, check System Settings > Dock & Menu Bar to ensure menu bar icons aren't hidden
+   - The icon should appear even if the backend isn't connected (it will show connection status in the menu)
+
+**Note:** The build script will create an Xcode project if one doesn't exist, or you can create one manually:
+
+1. Open Xcode
+2. Create a new macOS App project
+3. Set the project name to "LocalFlow"
+4. Copy the Swift files from `LocalFlowApp/LocalFlowApp/` into the Xcode project
+5. Build and run
 
 ## Usage
 
 ### First Run
 
-1. **Grant Permissions**: On first launch, macOS will prompt for Accessibility permissions. Grant them in System Settings > Privacy & Security > Accessibility.
+1. **Start the backend server:**
+   ```bash
+   uv run python main.py --server
+   ```
+   Keep this terminal window open while using the app.
 
-2. **Set Hotkey**:
+2. **Launch the SwiftUI app:**
+   ```bash
+   open build/LocalFlow.app
+   ```
+
+3. **Find the menu bar icon:**
+   - Look for the microphone icon (🎤) in the top-right menu bar
+   - Click it to open the menu
+   - Verify you see "✓ Backend Connected" at the top of the menu
+
+4. **Grant Permissions**: On first launch, macOS will prompt for Accessibility permissions. Grant them in System Settings > Privacy & Security > Accessibility.
+
+5. **Set Hotkey**:
    - Click the LocalFlow icon in the menu bar
    - Select "Preferences"
    - Click "Listen for Shortcut" and press your desired key combination (e.g., Cmd+Shift+Space)
    - Choose recording mode: Toggle or Hold-to-Talk
    - Click "Save Preferences"
 
-3. **Download Model** (if needed):
+6. **Download Model** (if needed):
    - Click "Model Manager" from the menu bar
    - Select a model variant (default: large-turbo for M4 Pro)
    - Click "Download" and wait for completion
@@ -128,12 +189,27 @@ Available Whisper models (from fastest to most accurate):
 
 ## Architecture
 
-```javascript
+### SwiftUI App (New)
+```
+LocalFlowApp/
+├── LocalFlowApp.swift → Main app with menubar integration
+├── Views/
+│   ├── RecordingOverlayView.swift → Recording window with waveform
+│   ├── PreferencesView.swift → Settings and hotkey configuration
+│   └── ModelManagerView.swift → Model download and switching
+├── Services/
+│   ├── BackendService.swift → HTTP client for API communication
+│   └── WebSocketService.swift → WebSocket client for real-time updates
+└── Models/
+    └── DataModels.swift → Data models for API responses
+```
+
+### Python Backend
+```
 main.py (Entry Point)
-├── Menubar (rumps) → Preferences, Model Manager, About, Quit
-├── ui/
-│   ├── overlay.py → Recording overlay with oscilloscope waveform
-│   └── settings.py → Preferences & Model Manager windows
+├── server.py → HTTP/WebSocket server for SwiftUI app
+├── Menubar (rumps) → Legacy Python UI (optional)
+├── ui/ → Legacy Python UI (optional)
 └── engine/
     ├── transcriber.py → MLX-Whisper model loading & inference
     ├── vad.py → Silero VAD (ONNX) for voice activity detection
@@ -142,6 +218,45 @@ main.py (Entry Point)
 ```
 
 ## Troubleshooting
+
+### Menu Bar Icon Not Visible
+
+If you don't see the LocalFlow menu bar icon:
+
+1. **Check menu bar visibility settings:**
+   - Open System Settings > Dock & Menu Bar
+   - Ensure menu bar icons are not hidden
+   - Some macOS versions hide menu bar icons when there are too many
+
+2. **Verify the app is running:**
+   - Check Activity Monitor for "LocalFlow" process
+   - The app runs as a menu bar app (no dock icon)
+
+3. **Restart the app:**
+   - Quit LocalFlow completely
+   - Reopen `build/LocalFlow.app`
+
+4. **Check backend connection:**
+   - Click the menu bar icon (if visible) to see connection status
+   - If backend is disconnected, start the server: `uv run python main.py --server`
+
+### Backend Server Not Running
+
+If you see "Backend Disconnected" in the menu:
+
+1. **Start the backend server:**
+   ```bash
+   uv run python main.py --server
+   ```
+
+2. **Verify the server is running:**
+   - Check terminal output for "Uvicorn running on http://127.0.0.1:8000"
+   - The app will automatically reconnect when the server starts
+
+3. **Check connection status:**
+   - Click the menu bar icon
+   - Look for "✓ Backend Connected" or "✗ Backend Disconnected" at the top of the menu
+   - Use "Check Backend Connection" menu item to manually reconnect
 
 ### Accessibility Permissions
 
