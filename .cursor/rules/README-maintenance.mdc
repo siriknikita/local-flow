@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+After finishing your implementation of changes, if the backend/app runs correctly/compiles successfully, update the README.md file to reflect the changes.
+
+## Documentation Guidelines
+
+1. **Only update if working**: Only update README.md if you have verified that:
+   - The backend runs correctly, OR
+   - The app compiles successfully
+
+2. **Focus on features, not fixes**:
+   - Document **what** the feature is
+   - Document **how** it works (both high-level and technical details)
+   - Document **when** it works (use cases, conditions)
+   - **DO NOT** explain why fixes worked or what problems were solved
+
+3. **Update mermaid diagrams**: If any mermaid diagrams exist in README.md or docs/, update them to reflect:
+   - Actual system changes
+   - Current architecture
+   - Data flow
+   - Project structure
+
+4. **Keep it accurate**: Ensure all paths, commands, and examples in README.md match the current project structure.
+
+5. **Update relevant sections**:
+   - Installation instructions
+   - Usage examples
+   - Architecture diagrams
+   - Configuration references
+   - Script usage

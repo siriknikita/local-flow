@@ -12,7 +12,8 @@ CONFIGURATION="${CONFIGURATION:-Release}"  # Release or Debug
 OUTPUT_DIR="${OUTPUT_DIR:-build}"
 APP_BUNDLE="${OUTPUT_DIR}/${APP_NAME}.app"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SWIFTUI_DIR="${SCRIPT_DIR}/LocalFlowApp"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SWIFTUI_DIR="${PROJECT_ROOT}/LocalFlowApp"
 # Note: Derived data is always cleaned to ensure fresh builds with correct timestamps
 
 # Colors for output
@@ -100,7 +101,7 @@ if [ ! -f "${SWIFTUI_DIR}/${APP_NAME}.xcodeproj/project.pbxproj" ]; then
         swift build -c "${CONFIGURATION,,}"  # Convert to lowercase
         
         # Create app bundle structure
-        APP_BUNDLE_PATH="${SCRIPT_DIR}/${APP_BUNDLE}"
+        APP_BUNDLE_PATH="${PROJECT_ROOT}/${APP_BUNDLE}"
         mkdir -p "${APP_BUNDLE_PATH}/Contents/MacOS"
         mkdir -p "${APP_BUNDLE_PATH}/Contents/Resources"
         
@@ -128,12 +129,12 @@ if [ ! -f "${SWIFTUI_DIR}/${APP_NAME}.xcodeproj/project.pbxproj" ]; then
         # Create PkgInfo
         echo "APPL????" > "${APP_BUNDLE_PATH}/Contents/PkgInfo"
         
-        cd "${SCRIPT_DIR}"
+        cd "${PROJECT_ROOT}"
         # Skip xcodebuild step
         SKIP_XCODEBUILD=true
     fi
     
-    cd "${SCRIPT_DIR}"
+    cd "${PROJECT_ROOT}"
 fi
 
 if [ "${SKIP_XCODEBUILD}" != "true" ]; then
@@ -148,7 +149,7 @@ if [ "${SKIP_XCODEBUILD}" != "true" ]; then
     fi
     
     # Clean derived data to ensure fresh build (always clean to prevent stale timestamps)
-    DERIVED_DATA_PATH="${SCRIPT_DIR}/${OUTPUT_DIR}/DerivedData"
+    DERIVED_DATA_PATH="${PROJECT_ROOT}/${OUTPUT_DIR}/DerivedData"
     echo "Cleaning derived data for fresh build..."
     if [ -d "${DERIVED_DATA_PATH}" ]; then
         rm -rf "${DERIVED_DATA_PATH}"
@@ -156,14 +157,14 @@ if [ "${SKIP_XCODEBUILD}" != "true" ]; then
     fi
     
     # Remove old archive and app bundle to ensure fresh build
-    ARCHIVE_PATH="${SCRIPT_DIR}/${OUTPUT_DIR}/${APP_NAME}.xcarchive"
+    ARCHIVE_PATH="${PROJECT_ROOT}/${OUTPUT_DIR}/${APP_NAME}.xcarchive"
     if [ -d "${ARCHIVE_PATH}" ]; then
         echo "Removing old archive..."
         rm -rf "${ARCHIVE_PATH}"
     fi
-    if [ -d "${SCRIPT_DIR}/${APP_BUNDLE}" ]; then
+    if [ -d "${PROJECT_ROOT}/${APP_BUNDLE}" ]; then
         echo "Removing old app bundle..."
-        rm -rf "${SCRIPT_DIR}/${APP_BUNDLE}"
+        rm -rf "${PROJECT_ROOT}/${APP_BUNDLE}"
     fi
     
     # Clean build to ensure fresh compilation
@@ -182,7 +183,7 @@ if [ "${SKIP_XCODEBUILD}" != "true" ]; then
         -scheme "${SCHEME}" \
         -configuration "${CONFIGURATION}" \
         -derivedDataPath "${DERIVED_DATA_PATH}" \
-        -archivePath "${SCRIPT_DIR}/${OUTPUT_DIR}/${APP_NAME}.xcarchive" \
+        -archivePath "${PROJECT_ROOT}/${OUTPUT_DIR}/${APP_NAME}.xcarchive" \
         -UseModernBuildSystem=YES \
         archive 2>&1; then
         echo -e "${RED}Error: xcodebuild failed.${NC}"
@@ -196,38 +197,38 @@ if [ "${SKIP_XCODEBUILD}" != "true" ]; then
     fi
     
     # Extract app from archive
-    ARCHIVE_APP_PATH="${SCRIPT_DIR}/${OUTPUT_DIR}/${APP_NAME}.xcarchive/Products/Applications/${APP_NAME}.app"
+    ARCHIVE_APP_PATH="${PROJECT_ROOT}/${OUTPUT_DIR}/${APP_NAME}.xcarchive/Products/Applications/${APP_NAME}.app"
     if [ -d "${ARCHIVE_APP_PATH}" ]; then
         # Remove old app bundle if it exists
-        if [ -d "${SCRIPT_DIR}/${APP_BUNDLE}" ]; then
-            rm -rf "${SCRIPT_DIR}/${APP_BUNDLE}"
+        if [ -d "${PROJECT_ROOT}/${APP_BUNDLE}" ]; then
+            rm -rf "${PROJECT_ROOT}/${APP_BUNDLE}"
         fi
         # Copy app bundle (without preserving timestamps)
-        cp -R "${ARCHIVE_APP_PATH}" "${SCRIPT_DIR}/${APP_BUNDLE}"
+        cp -R "${ARCHIVE_APP_PATH}" "${PROJECT_ROOT}/${APP_BUNDLE}"
         # Touch the app bundle to ensure current timestamp
-        touch "${SCRIPT_DIR}/${APP_BUNDLE}"
+        touch "${PROJECT_ROOT}/${APP_BUNDLE}"
     else
         echo -e "${RED}Error: App bundle not found in archive${NC}"
         exit 1
     fi
     
-    cd "${SCRIPT_DIR}"
+    cd "${PROJECT_ROOT}"
 fi
 
 # Copy Python backend files to app bundle
 echo "Bundling Python backend..."
-PYTHON_DIR="${APP_BUNDLE}/Contents/Resources/Python"
+PYTHON_DIR="${PROJECT_ROOT}/${APP_BUNDLE}/Contents/Resources/Python"
 mkdir -p "${PYTHON_DIR}"
 
-# Copy server.py and config files
-cp "${SCRIPT_DIR}/server.py" "${PYTHON_DIR}/"
-cp "${SCRIPT_DIR}/config.py" "${PYTHON_DIR}/"
-if [ -f "${SCRIPT_DIR}/config.json" ]; then
-    cp "${SCRIPT_DIR}/config.json" "${PYTHON_DIR}/"
+# Copy server.py and config files from backend/
+cp "${PROJECT_ROOT}/backend/server.py" "${PYTHON_DIR}/"
+cp "${PROJECT_ROOT}/backend/config.py" "${PYTHON_DIR}/"
+if [ -f "${PROJECT_ROOT}/configs/config.json" ]; then
+    cp "${PROJECT_ROOT}/configs/config.json" "${PYTHON_DIR}/"
 fi
 
-# Copy engine directory
-cp -R "${SCRIPT_DIR}/engine" "${PYTHON_DIR}/"
+# Copy engine directory from backend/
+cp -R "${PROJECT_ROOT}/backend/engine" "${PYTHON_DIR}/"
 
 # Create launcher script
 cat > "${APP_BUNDLE}/Contents/MacOS/localflow-backend" << 'LAUNCHER_EOF'
@@ -268,7 +269,7 @@ if [ -d "${APPLICATIONS_APP}" ]; then
     # Remove old app
     if rm -rf "${APPLICATIONS_APP}" 2>/dev/null; then
         # Copy new app
-        if cp -R "${SCRIPT_DIR}/${APP_BUNDLE}" "${APPLICATIONS_APP}"; then
+        if cp -R "${PROJECT_ROOT}/${APP_BUNDLE}" "${APPLICATIONS_APP}"; then
             echo -e "${GREEN}Successfully replaced ${APPLICATIONS_APP}${NC}"
         else
             echo -e "${RED}Error: Failed to copy app to /Applications${NC}"

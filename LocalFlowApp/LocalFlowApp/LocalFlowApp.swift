@@ -59,7 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Try to detect project directory
         let fileManager = FileManager.default
         let currentDir = fileManager.currentDirectoryPath
-        if fileManager.fileExists(atPath: "\(currentDir)/main.py") {
+        if fileManager.fileExists(atPath: "\(currentDir)/backend/main.py") {
             serverManager.setProjectDirectory(currentDir)
         }
         

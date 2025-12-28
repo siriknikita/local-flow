@@ -7,9 +7,10 @@ from typing import Any, Dict
 
 def get_config_path() -> Path:
     """Return the path to the config.json file."""
-    # Get the directory where this script is located
+    # Get the project root (one level up from backend/)
     script_dir = Path(__file__).parent
-    return script_dir / "config.json"
+    project_root = script_dir.parent
+    return project_root / "configs" / "config.json"
 
 
 def load_config() -> Dict[str, Any]:

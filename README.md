@@ -35,21 +35,33 @@ cd local-flow
 2. Install dependencies using UV:
 
 ```bash
+cd backend
 uv sync
+cd ..
 ```
 
 3. Run the application:
 
-**Option A: SwiftUI App (Recommended)**
+**Option A: Using the Menu Script (Recommended)**
+```bash
+./run.sh
+```
+
+This will present an interactive menu where you can choose to:
+- Build the application
+- Run the Python backend server
+
+**Option B: SwiftUI App (Recommended)**
 ```bash
 # Start the backend server
-uv run python main.py --server
+./scripts/run-backend.sh
 
 # Then build and run the SwiftUI app (see SwiftUI App section below)
 ```
 
-**Option B: Python UI (Legacy)**
+**Option C: Python UI (Legacy)**
 ```bash
+cd backend
 uv run python main.py
 ```
 
@@ -59,12 +71,24 @@ The SwiftUI app provides a native macOS experience. **Important: The SwiftUI app
 
 1. **Build the app:**
    ```bash
-   ./build.sh
+   ./scripts/build.sh
+   ```
+   
+   Or use the menu script:
+   ```bash
+   ./run.sh
+   # Then select option 1
    ```
 
 2. **Start the backend server first:**
    ```bash
-   uv run python main.py --server
+   ./scripts/run-backend.sh
+   ```
+   
+   Or use the menu script:
+   ```bash
+   ./run.sh
+   # Then select option 2
    ```
    
    The server will start on `http://127.0.0.1:8000`. Keep this terminal window open.
@@ -93,8 +117,15 @@ The SwiftUI app provides a native macOS experience. **Important: The SwiftUI app
 
 1. **Start the backend server:**
    ```bash
-   uv run python main.py --server
+   ./scripts/run-backend.sh
    ```
+   
+   Or use the menu script:
+   ```bash
+   ./run.sh
+   # Then select option 2
+   ```
+   
    Keep this terminal window open while using the app.
 
 2. **Launch the SwiftUI app:**
@@ -146,7 +177,7 @@ The SwiftUI app provides a native macOS experience. **Important: The SwiftUI app
 
 ## Configuration
 
-Configuration is stored in `config.json`:
+Configuration is stored in `configs/config.json`:
 
 ```json
 {
@@ -204,18 +235,38 @@ LocalFlowApp/
     └── DataModels.swift → Data models for API responses
 ```
 
+### Project Structure
+```
+local-flow/
+├── backend/
+│   ├── main.py → Entry point (CLI or server mode)
+│   ├── server.py → HTTP/WebSocket server for SwiftUI app
+│   ├── config.py → Configuration management
+│   ├── engine/
+│   │   ├── transcriber.py → MLX-Whisper model loading & inference
+│   │   ├── vad.py → Silero VAD (ONNX) for voice activity detection
+│   │   ├── audio.py → Audio capture & waveform processing
+│   │   └── injector.py → Accessibility API text injection (no clipboard)
+│   ├── pyproject.toml → Python dependencies
+│   └── uv.lock → Dependency lock file
+├── configs/
+│   └── config.json → Application configuration
+├── docs/
+│   └── (documentation files)
+├── scripts/
+│   ├── build.sh → Build SwiftUI app
+│   └── run-backend.sh → Run Python backend server
+├── run.sh → Interactive menu script
+└── LocalFlowApp/
+    └── (SwiftUI app files)
+```
+
 ### Python Backend
-```
-main.py (Entry Point)
-├── server.py → HTTP/WebSocket server for SwiftUI app
-├── Menubar (rumps) → Legacy Python UI (optional)
-├── ui/ → Legacy Python UI (optional)
-└── engine/
-    ├── transcriber.py → MLX-Whisper model loading & inference
-    ├── vad.py → Silero VAD (ONNX) for voice activity detection
-    ├── audio.py → Audio capture & waveform processing
-    └── injector.py → Accessibility API text injection (no clipboard)
-```
+The backend is located in the `backend/` directory:
+- `main.py` - Entry point (can run as CLI or server)
+- `server.py` - HTTP/WebSocket server for SwiftUI app
+- `config.py` - Configuration management (reads from `configs/config.json`)
+- `engine/` - Core processing modules (transcription, VAD, audio, text injection)
 
 ## Troubleshooting
 
@@ -238,7 +289,7 @@ If you don't see the LocalFlow menu bar icon:
 
 4. **Check backend connection:**
    - Click the menu bar icon (if visible) to see connection status
-   - If backend is disconnected, start the server: `uv run python main.py --server`
+   - If backend is disconnected, start the server: `./scripts/run-backend.sh` or use `./run.sh`
 
 ### Backend Server Not Running
 
@@ -246,7 +297,13 @@ If you see "Backend Disconnected" in the menu:
 
 1. **Start the backend server:**
    ```bash
-   uv run python main.py --server
+   ./scripts/run-backend.sh
+   ```
+   
+   Or use the menu script:
+   ```bash
+   ./run.sh
+   # Then select option 2
    ```
 
 2. **Verify the server is running:**

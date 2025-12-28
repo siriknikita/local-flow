@@ -36,8 +36,8 @@ class BackendServerManager: ObservableObject {
             let currentDir = fileManager.currentDirectoryPath
             
             // Check if we're in a LocalFlow project directory
-            if fileManager.fileExists(atPath: "\(currentDir)/main.py") &&
-               fileManager.fileExists(atPath: "\(currentDir)/server.py") {
+            if fileManager.fileExists(atPath: "\(currentDir)/backend/main.py") &&
+               fileManager.fileExists(atPath: "\(currentDir)/backend/server.py") {
                 projectDirectory = currentDir
             } else {
                 // Try to find project directory relative to bundle
@@ -145,11 +145,20 @@ class BackendServerManager: ObservableObject {
         }
         
         let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: "\(projectDir)/main.py") else {
-            print("Error: main.py not found in \(projectDir)")
+        
+        // Determine backend directory
+        let backendDir: String
+        if projectDir.hasSuffix("/backend") {
+            backendDir = projectDir
+        } else {
+            backendDir = "\(projectDir)/backend"
+        }
+        
+        guard fileManager.fileExists(atPath: "\(backendDir)/main.py") else {
+            print("Error: main.py not found in \(backendDir)")
             showErrorAlert(
                 title: "Cannot Start Server",
-                message: "main.py not found in project directory: \(projectDir)"
+                message: "main.py not found in backend directory: \(backendDir)"
             )
             return false
         }
@@ -157,7 +166,7 @@ class BackendServerManager: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: uvPath)
         process.arguments = ["run", "main.py", "--server"]
-        process.currentDirectoryURL = URL(fileURLWithPath: projectDir)
+        process.currentDirectoryURL = URL(fileURLWithPath: backendDir)
         
         // Set up environment
         var environment = ProcessInfo.processInfo.environment

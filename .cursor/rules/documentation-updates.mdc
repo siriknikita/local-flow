@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+After finishing your implementation of changes, if the backend/app runs correctly/compiles successfully, update documentation in the `docs/` folder to reflect the changes.
+
+## Documentation Guidelines
+
+1. **Only update if working**: Only update documentation if you have verified that:
+   - The backend runs correctly, OR
+   - The app compiles successfully
+
+2. **Focus on features, not fixes**:
+   - Document **what** the feature is (high-level description)
+   - Document **how** it works (technical implementation details)
+   - Document **when** it works (use cases, conditions, prerequisites)
+   - **DO NOT** explain why fixes worked or what problems were solved
+
+3. **Update mermaid diagrams**: If any mermaid diagrams exist in documentation, update them to reflect:
+   - Actual system changes
+   - Current architecture
+   - Data flow
+   - Component interactions
+   - Project structure
+
+4. **Documentation levels**:
+   - **High-level**: User-facing features, use cases, benefits
+   - **Technical**: Implementation details, APIs, data structures, algorithms
+
+5. **Keep it accurate**: Ensure all documentation matches the current codebase and project structure.
+
+6. **Create new docs if needed**: If implementing a significant new feature, create appropriate documentation files in `docs/` folder.
