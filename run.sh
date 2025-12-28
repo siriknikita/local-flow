@@ -22,8 +22,8 @@ show_menu() {
     echo ""
     echo "What would you like to do?"
     echo ""
-    echo "  1) Build the application"
-    echo "  2) Run the Python backend server"
+    echo "  1) Run the Python backend server"
+    echo "  2) Build the application"
     echo "  3) Exit"
     echo ""
     echo -n "Please select an option [1-3]: "
@@ -52,10 +52,10 @@ while true; do
     
     case $choice in
         1)
-            run_build
+            run_backend
             ;;
         2)
-            run_backend
+            run_build
             ;;
         3)
             echo ""
