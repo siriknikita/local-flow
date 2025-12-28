@@ -7,103 +7,6 @@ import time
 from pathlib import Path
 from typing import Optional
 
-# Configure Tk library paths BEFORE importing Tkinter/CustomTkinter
-# This fixes compatibility issues with newer macOS versions
-def _configure_tk_library():
-    """Configure Tk library paths to use Homebrew's Python-Tk if available.
-    
-    This fixes the NSInvalidArgumentException crash on newer macOS versions
-    where the system's Tk library is incompatible.
-    """
-    # Common Homebrew paths for Python-Tk
-    homebrew_prefixes = [
-        "/opt/homebrew",  # Apple Silicon
-        "/usr/local",     # Intel Mac
-    ]
-    
-    for prefix in homebrew_prefixes:
-        tk_lib = Path(prefix) / "lib" / "tk8.6"
-        tcl_lib = Path(prefix) / "lib" / "tcl8.6"
-        
-        # Check if Homebrew Tk is available
-        if tk_lib.exists() and tcl_lib.exists():
-            os.environ["TK_LIBRARY"] = str(tk_lib)
-            os.environ["TCL_LIBRARY"] = str(tcl_lib)
-            # Log will be configured later, just set env vars for now
-            return True
-    
-    # If Homebrew Tk not found, continue anyway
-    # The error will be caught later with a helpful message
-    return False
-
-def _test_tkinter_compatibility():
-    """Test if Tkinter can be safely initialized without crashing.
-    
-    Uses a subprocess to test, so if it crashes, it won't kill the main process.
-    
-    Returns:
-        True if Tkinter is compatible, False otherwise
-    """
-    import subprocess
-    
-    # Test script that tries to create a Tkinter root window
-    test_script = """
-import sys
-import os
-try:
-    import customtkinter as ctk
-    root = ctk.CTk()
-    root.withdraw()
-    root.destroy()
-    print("SUCCESS")
-    sys.exit(0)
-except Exception as e:
-    print(f"ERROR: {e}")
-    sys.exit(1)
-"""
-    
-    try:
-        # Run test in subprocess with timeout
-        # Use the same environment variables (including TK_LIBRARY, TCL_LIBRARY)
-        result = subprocess.run(
-            [sys.executable, "-c", test_script],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            env=os.environ.copy()
-        )
-        
-        if result.returncode == 0 and "SUCCESS" in result.stdout:
-            return True
-        else:
-            # Log the error for debugging
-            if result.stderr:
-                print(f"Tkinter compatibility test failed: {result.stderr}", file=sys.stderr)
-            if result.stdout and "ERROR" in result.stdout:
-                print(f"Tkinter compatibility test error: {result.stdout}", file=sys.stderr)
-            return False
-    except subprocess.TimeoutExpired:
-        # Subprocess timed out - likely crashed
-        print("Tkinter compatibility test timed out (likely crashed)", file=sys.stderr)
-        return False
-    except (subprocess.SubprocessError, Exception) as e:
-        # If subprocess crashes or times out, Tkinter is not compatible
-        print(f"Tkinter compatibility test failed: {e}", file=sys.stderr)
-        return False
-
-# Configure Tk before any imports
-_configure_tk_library()
-
-# Test Tkinter compatibility before importing
-# This prevents crashes in the main process
-TKINTER_AVAILABLE = _test_tkinter_compatibility()
-
-# Only import CustomTkinter if it's compatible
-if TKINTER_AVAILABLE:
-    import customtkinter as ctk
-else:
-    ctk = None  # Will be checked before use
-
 import rumps
 from pynput import keyboard
 
@@ -119,8 +22,6 @@ from engine.audio import AudioRecorder
 from engine.injector import TextInjector
 from engine.transcriber import WhisperTranscriber
 from engine.vad import SileroVAD
-from ui.overlay import RecordingOverlay
-from ui.settings import ModelManagerWindow, PreferencesWindow
 
 try:
     import sounddevice as sd
@@ -202,12 +103,6 @@ class LocalFlowApp(rumps.App):
         else:
             logger.warning(f"Step 6: Could not extract variant from model name '{model_name}'")
         
-        # UI components
-        logger.info("Step 7: Initializing UI components")
-        self.overlay: Optional[RecordingOverlay] = None
-        self.preferences_window: Optional[PreferencesWindow] = None
-        self.model_manager_window: Optional[ModelManagerWindow] = None
-        
         # State management
         self.is_recording = False
         self.hotkey_listener: Optional[keyboard.Listener] = None
@@ -225,116 +120,13 @@ class LocalFlowApp(rumps.App):
         self._setup_hotkey_listener()
         
         # Check permissions on startup
-        logger.info("Step 11: Checking Accessibility permissions")
+        logger.info("Step 7: Checking Accessibility permissions")
         self._check_startup_permissions()
-        
-        # Initialize CustomTkinter configuration (defer root window creation)
-        logger.info("Step 10: Initializing UI framework")
-        if not TKINTER_AVAILABLE:
-            logger.warning("Step 10: Tkinter is not available (incompatible with macOS 26.0.99)")
-            logger.warning("Step 10: UI windows will not be available")
-            logger.warning("Step 10: To fix: brew install python-tk@3.12")
-            self.root = False  # Mark as unavailable
-            # Show alert after a delay
-            threading.Timer(2.0, self._show_tkinter_unavailable_alert).start()
-        else:
-            try:
-                logger.info("Step 10.1: Setting CustomTkinter appearance mode")
-                if ctk:
-                    ctk.set_appearance_mode("dark")
-                    logger.info("Step 10.1: Appearance mode set successfully")
-                    
-                    # Defer root window creation until actually needed
-                    # Creating it here conflicts with rumps' event loop on macOS
-                    logger.info("Step 10.2: UI framework configured (root window will be created on demand)")
-                    self.root = None  # Will be created lazily when first window is shown
-                    logger.info("Step 10: UI framework initialized successfully")
-                else:
-                    logger.warning("Step 10: CustomTkinter not available")
-                    self.root = False
-            except Exception as e:
-                logger.error(f"Step 10: Failed to initialize UI framework: {e}", exc_info=True)
-                logger.error("Step 10: Application will continue but UI windows may not work properly")
-                self.root = False
         
         logger.info("=" * 60)
         logger.info("LocalFlow started successfully. Check the menu bar for options.")
         logger.info("=" * 60)
         sys.stdout.flush()  # Ensure logs are flushed
-    
-    def _ensure_ctk_root(self):
-        """Ensure CustomTkinter root window exists (lazy initialization).
-        
-        This is called when a window needs to be shown, avoiding conflicts
-        with rumps' event loop during startup.
-        
-        Raises:
-            RuntimeError: If Tkinter initialization fails due to macOS compatibility issues
-        """
-        # Check if Tkinter is available at all
-        if not TKINTER_AVAILABLE or ctk is None:
-            raise RuntimeError(
-                "Tkinter is not compatible with macOS 26.0.99. "
-                "Please install Homebrew Python-Tk: brew install python-tk@3.12"
-            )
-        
-        # If root is False, it means initialization previously failed
-        if self.root is False:
-            raise RuntimeError("Tkinter initialization previously failed due to macOS compatibility issue")
-        
-        if self.root is None:
-            try:
-                logger.info("Creating CustomTkinter root window (lazy initialization)")
-                # Create root window in a way that doesn't interfere with rumps
-                # Use update_idletasks to initialize without blocking
-                self.root = ctk.CTk()
-                self.root.withdraw()  # Hide root window immediately
-                self.root.update_idletasks()  # Process any pending events
-                logger.info("CustomTkinter root window created successfully")
-            except Exception as e:
-                error_msg = str(e)
-                error_type = type(e).__name__
-                
-                # Check for macOS Tkinter compatibility issues
-                is_macos_tk_error = (
-                    "NSInvalidArgumentException" in error_msg or
-                    "macOSVersion" in error_msg or
-                    "unrecognized selector" in error_msg.lower() or
-                    error_type == "TclError"
-                )
-                
-                logger.error(f"Failed to create CustomTkinter root window: {e}", exc_info=True)
-                
-                if is_macos_tk_error:
-                    error_message = (
-                        "Tkinter is not compatible with your macOS version.\n\n"
-                        "This is a known issue with the system's Tk library.\n\n"
-                        "To fix this, install Python-Tk via Homebrew:\n"
-                        "  brew install python-tk@3.12\n\n"
-                        "Then restart the application.\n\n"
-                        "The app will continue running, but UI windows won't be available."
-                    )
-                    logger.error("Tkinter compatibility error detected")
-                    logger.error("Solution: Install Homebrew Python-Tk: brew install python-tk@3.12")
-                    
-                    # Show user-friendly error using rumps (doesn't require Tkinter)
-                    try:
-                        rumps.alert(
-                            title="UI Not Available",
-                            message=error_message,
-                            ok="OK"
-                        )
-                    except Exception:
-                        # If rumps.alert also fails, just log it
-                        logger.error("Could not show error dialog")
-                    
-                    # Set root to a sentinel value to prevent repeated attempts
-                    self.root = False  # Use False instead of None to indicate failure
-                    raise RuntimeError("Tkinter initialization failed due to macOS compatibility issue")
-                else:
-                    logger.error("This may be due to a conflict with rumps' event loop or another issue")
-                    self.root = False  # Mark as failed
-                    raise
     
     def _extract_model_variant(self, model_name: str) -> Optional[str]:
         """Extract model variant from full model name.
@@ -369,9 +161,6 @@ class LocalFlowApp(rumps.App):
             None,  # Separator
             rumps.MenuItem("Test Hotkey", callback=self.test_hotkey),
             rumps.MenuItem("Toggle Diagnostic Mode", callback=self.toggle_diagnostic_mode),
-            None,  # Separator
-            rumps.MenuItem("Preferences", callback=self.show_preferences),
-            rumps.MenuItem("Model Manager", callback=self.show_model_manager),
             None,  # Separator
             rumps.MenuItem("Check Permissions", callback=self.check_permissions),
             rumps.MenuItem("About", callback=self.show_about),
@@ -623,28 +412,6 @@ class LocalFlowApp(rumps.App):
         logger.info("=" * 60)
         self.is_recording = True
         
-        # UI overlay code commented out - backend not working yet
-        # # Ensure CustomTkinter root exists before showing overlay
-        # try:
-        #     self._ensure_ctk_root()
-        # except Exception as e:
-        #     logger.error(f"Failed to initialize UI for recording overlay: {e}", exc_info=True)
-        #     logger.error("Recording will continue but overlay will not be shown")
-        #     # Continue without overlay
-        #     self.audio_recorder.start_recording()
-        #     logger.info("Recording started without overlay")
-        #     return
-        # 
-        # # Show overlay
-        # logger.debug("Showing recording overlay")
-        # self.overlay = RecordingOverlay(
-        #     waveform_callback=self.audio_recorder.get_waveform_data
-        # )
-        # self.overlay.show(
-        #     cancel_callback=self._cancel_recording,
-        #     stop_callback=self._stop_recording
-        # )
-        
         # Detect audio devices
         try:
             mic_device, system_device = self._detect_audio_devices()
@@ -724,20 +491,12 @@ class LocalFlowApp(rumps.App):
         logger.info("Stopping recording session")
         self.is_recording = False
         
-        # UI overlay code commented out - backend not working yet
-        # # Update overlay status
-        # if self.overlay:
-        #     self.overlay.update_status("Processing...")
-        
         # Stop audio recording
         logger.debug("Stopping audio recorder")
         audio_data = self.audio_recorder.stop_recording()
         
         if len(audio_data) == 0:
             logger.warning("No audio recorded, nothing to process")
-            # UI overlay code commented out - backend not working yet
-            # if self.overlay:
-            #     self.overlay.hide()
             return
         
         audio_duration = len(audio_data) / self.audio_recorder.SAMPLE_RATE
@@ -789,10 +548,6 @@ class LocalFlowApp(rumps.App):
                     # else:
                     #     logger.error("Step 5: Text injection failed")
                     
-                    # UI overlay code commented out - backend not working yet
-                    # # Hide overlay
-                    # if self.overlay:
-                    #     self.overlay.hide()
                     logger.info("Recording session completed")
                 
                 logger.info("Starting async transcription")
@@ -800,9 +555,6 @@ class LocalFlowApp(rumps.App):
                 
             except Exception as e:
                 logger.error(f"Error processing audio: {e}", exc_info=True)
-                # UI overlay code commented out - backend not working yet
-                # if self.overlay:
-                #     self.overlay.hide()
         
         process_thread = threading.Thread(target=process_audio, daemon=True)
         process_thread.start()
@@ -819,54 +571,7 @@ class LocalFlowApp(rumps.App):
         self.is_recording = False
         self.audio_recorder.stop_recording()
         
-        # UI overlay code commented out - backend not working yet
-        # if self.overlay:
-        #     self.overlay.hide()
-        
         logger.info("Recording cancelled successfully")
-    
-    def show_preferences(self, _=None):
-        """Show preferences window."""
-        try:
-            self._ensure_ctk_root()
-        except Exception as e:
-            logger.error(f"Failed to initialize UI for preferences window: {e}", exc_info=True)
-            rumps.alert(
-                title="Error",
-                message="Failed to open preferences window. Please check logs for details.",
-                ok="OK"
-            )
-            return
-        
-        def on_save(updated_config):
-            self.config = updated_config
-            self._setup_hotkey_listener()
-        
-        self.preferences_window = PreferencesWindow(on_save=on_save)
-        self.preferences_window.show()
-    
-    def show_model_manager(self, _=None):
-        """Show model manager window."""
-        try:
-            self._ensure_ctk_root()
-        except Exception as e:
-            logger.error(f"Failed to initialize UI for model manager window: {e}", exc_info=True)
-            rumps.alert(
-                title="Error",
-                message="Failed to open model manager window. Please check logs for details.",
-                ok="OK"
-            )
-            return
-        
-        def on_model_switch(variant):
-            self.config = config.load_config()
-            print(f"Model switched to {variant}")
-        
-        self.model_manager_window = ModelManagerWindow(
-            transcriber=self.transcriber,
-            on_model_switch=on_model_switch
-        )
-        self.model_manager_window.show()
     
     def _check_accessibility_permissions(self) -> bool:
         """Check if Accessibility permissions are granted for keyboard monitoring.
@@ -961,22 +666,6 @@ class LocalFlowApp(rumps.App):
                    "3. Enable LocalFlow\n"
                    "4. Restart the application\n\n"
                    "You can still use 'Start Recording' from the menu without permissions.",
-            ok="OK"
-        )
-    
-    def _show_tkinter_unavailable_alert(self):
-        """Show alert about Tkinter being unavailable."""
-        rumps.alert(
-            title="UI Not Available",
-            message="Tkinter is not compatible with macOS 26.0.99.\n\n"
-                   "This means UI windows (Preferences, Model Manager, Recording Overlay) "
-                   "will not be available.\n\n"
-                   "To fix this:\n"
-                   "1. Install Homebrew Python-Tk:\n"
-                   "   brew install python-tk@3.12\n"
-                   "2. Restart the application\n\n"
-                   "The app will continue running, but you'll need to use the menu bar "
-                   "for all functions.",
             ok="OK"
         )
     
@@ -1076,15 +765,7 @@ class LocalFlowApp(rumps.App):
             except Exception as e:
                 logger.error(f"Step 4: Error cleaning up audio resources: {e}", exc_info=True)
         
-        # Clean up UI resources
-        logger.info("Step 5: Cleaning up UI resources")
-        if self.overlay:
-            try:
-                self.overlay.hide()
-            except Exception:
-                pass
-        
-        logger.info("Step 6: Application shutdown complete")
+        logger.info("Step 5: Application shutdown complete")
         logger.info("=" * 60)
         
         # Quit
